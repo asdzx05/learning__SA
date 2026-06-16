@@ -9,7 +9,7 @@
 
 Решение 
 
-<img width="946" height="562" alt="image" src="https://github.com/user-attachments/assets/4f587aa1-f477-43a0-a699-7edd0682ca9d" />
+<img width="1116" height="610" alt="image" src="https://github.com/user-attachments/assets/74f5e4cc-a7fa-4bca-900a-62cdb71339e7" />
 
 ОПИСАНИЕ СИСТЕМ
 
