@@ -1,0 +1,500 @@
+openapi: 3.0.3
+info:
+  title: SpaceHub API
+  description: REST API for SpaceHub
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: api@example.com
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production
+  - url: https://staging.api.example.com/v1
+    description: Staging
+
+paths:
+  # List all orders
+  /locations:
+    get:
+      summary: List all locations
+      operationId: listLocations
+      tags:
+        - Locations
+
+      responses:
+        '200':
+          description: List of locations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Location'
+              example:
+                - id: 1
+                  name: "SpaceHub Центр"
+                  address: "Новосибирск, ул. Ленина, 1"
+                  totalRooms: 12
+                - id: 2
+                  name: "SpaceHub Академ"
+                  address: "Новосибирск, пр. Коптюга, 5"
+                  totalRooms: 8
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+
+  #Get location by ID
+  /locations/{locationId}:
+    get:
+      summary: Get location by ID
+      operationId: getLocation
+      tags:
+        - Locations
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: integer
+
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+              example:
+                id: 1
+                name: "SpaceHub Центр"
+                address: "Новосибирск, ул. Ленина, 1"
+                totalRooms: 12
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  #Get rooms by location
+  /locations/{locationId}/rooms:
+    get:
+      summary: Get rooms by location
+      operationId: getRooms
+      tags:
+        - Rooms
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: integer
+
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Room'
+                example:
+                  - id: 3
+                    locationId: 4
+                    name: "good room"
+                    type: "meeting_room"
+                    capacity: 4
+                    equipment: [projector, vcs, tv]
+                    floor: 41
+                    pricePerSlot: 124
+                    imageUrl: "https://cdn.spacehub.io/rooms/3.jpg"
+                  - id: 54
+                    locationId: 2
+                    name: "bad room"
+                    type: "skype_room"
+                    capacity: 7
+                    equipment: [ projector, tv ]
+                    floor: 20
+                    pricePerSlot: 300
+                    imageUrl: "https://cdn.spacehub.io/rooms/54.jpg"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  #Get room by ID
+  /rooms/{roomId}:
+    get:
+      summary: Get room by ID
+      operationId: getRoom
+      tags:
+        - Rooms
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: integer
+
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+              example:
+                id: 3
+                locationId: 4
+                name: "good room"
+                type: "meeting_room"
+                capacity: 4
+                equipment: [projector, vcs, tv]
+                floor: 41
+                pricePerSlot: 124
+                imageUrl: "https://cdn.spacehub.io/rooms/3.jpg"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  #Search rooms
+  /rooms/search:
+    post:
+      summary: Search rooms
+      operationId: searchRooms
+      tags:
+        - Rooms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomSearchRequest"
+            example:
+              date: "2026-04-12"
+              startTime: "10:00"
+              endTime: "12:00"
+              minCapacity: 4
+              equipment: [ projector ]
+              type: [ meeting_room ]
+
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Room'
+              example:
+                - id: 3
+                  locationId: 4
+                  name: "good room"
+                  type: "meeting_room"
+                  capacity: 4
+                  equipment: [projector, tv]
+                  floor: 2
+                  pricePerSlot: 124
+                  imageUrl: "https://cdn.spacehub.io/rooms/3.jpg"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  # Create a booking
+  /bookings:
+    post:
+      summary: Create a booking
+      operationId: createBooking
+      tags:
+        - Bookings
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: "Уникальный ключ (UUID) для защиты от дублей при повторной отправке"
+          schema:
+            type: string
+          example: "a1b2c3d4-5678-90ab-cdef-1234567890ab"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingCreate'
+            example:
+              roomId: 42
+              date: "2026-06-15"
+              startTime: "10:00"
+              endTime: "11:00"
+      responses:
+        '201':
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+              example:
+                id: 3
+                userId: 323542
+                roomId: 42
+                date: "2026-06-15"
+                startTime: "10:00"
+                endTime: "11:00"
+                status: ACTIVE
+                createdAt: "2026-06-15T09:30:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+
+components:
+  schemas:
+    Location:
+      type: object
+      required:
+        - locationId
+        - name
+        - address
+        - totalRooms
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        address:
+          type: string
+        totalRooms:
+          type: integer
+
+    Room:
+      type: object
+      required:
+        - id
+        - locationId
+        - name
+        - type
+        - capacity
+        - equipment
+        - floor
+        - pricePerSlot
+        - imageUrl
+      properties:
+        id:
+          type: integer
+          example: 42
+        locationId:
+          type: integer
+          example: 2
+        name:
+          type: string
+          example: loveRoom
+        type:
+          type: string
+          enum: [ meeting_room, conference_hall, skype_room, lounge ]
+          example: [ meeting_room, skype_room]
+        capacity:
+          type: integer
+          example: 4
+        equipment:
+          type: array
+          items:
+            type: string
+            enum: [projector, whiteboard, vcs, tv]
+          example: [projector, tv]
+        floor:
+          type: integer
+          example: 1
+        pricePerSlot:
+          type: number
+          example: 34
+        imageUrl:
+          type: string
+          format: uri
+          example: "https://cdn.spacehub.io/rooms/42.jpg"
+
+    Booking:
+      type: object
+      required:
+        - id
+        - userId
+        - roomId
+        - date
+        - startTime
+        - endTime
+        - status
+        - createdAt
+      properties:
+        id:
+          type: integer
+          example: 3
+        userId:
+          type: integer
+          example: 323542
+        roomId:
+          type: integer
+          example: 99
+        date:
+          type: string
+          format: date
+          example: "2026-06-15"
+        startTime:
+          type: string
+          example: "10:00"
+          description: "Начало слота, HH:mm, шаг 30 минут (08:00–22:00)"
+        endTime:
+          type: string
+          example: "11:00"
+          description: "Конец слота, HH:mm, шаг 30 минут (08:00–22:00)"
+        status:
+          type: string
+          enum: [ACTIVE, CANCELLED]
+          example: ACTIVE
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-06-15T09:30:00Z"
+
+    BookingCreate:
+      type: object
+      required:
+        - roomId
+        - date
+        - startTime
+        - endTime
+      properties:
+        roomId:
+          type: integer
+          example: 34
+        date:
+          type: string
+          format: date
+          example: "2026-06-15"
+        startTime:
+          type: string
+          example: "10:00"
+          description: "Начало слота, HH:mm, шаг 30 минут (08:00–22:00)"
+        endTime:
+          type: string
+          example: "11:00"
+          description: "Конец слота, HH:mm, шаг 30 минут (08:00–22:00)"
+
+    RoomSearchRequest:
+      type: object
+      required:
+        - date
+        - startTime
+        - endTime
+      properties:
+        locationId:
+          type: integer
+          example: 42
+        date:
+          type: string
+          format: date
+          example: "2026-06-15"
+        startTime:
+          type: string
+          example: "10:00"
+          description: "Начало слота, HH:mm, шаг 30 минут (08:00–22:00)"
+        endTime:
+          type: string
+          example: "11:00"
+          description: "Конец слота, HH:mm, шаг 30 минут (08:00–22:00)"
+        minCapacity:
+          type: integer
+          example: 2
+        equipment:
+          type: array
+          items:
+            type: string
+            enum: [ projector, whiteboard, vcs, tv]
+          example: [ projector, tv]
+        type:
+          type: array
+          items:
+            type: string
+            enum: [meeting_room, conference_hall, skype_room, lounge]
+          example: [meeting_room, skype_room]
+        floor:
+          type: integer
+          example: 1
+        maxPrice:
+          type: number
+          example: 430
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Booking not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflict:
+      description: Conflict (duplicate, etc.)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    Unprocessable:
+      description: Request is valid but violates a business rule
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Authentication token is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []

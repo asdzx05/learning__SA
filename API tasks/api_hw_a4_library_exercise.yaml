@@ -1,0 +1,781 @@
+openapi: 3.0.3
+info:
+  title: BookNet Service API
+  description: REST API for BookNet
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: api@example.com
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production
+  - url: https://staging.api.example.com/v1
+    description: Staging
+
+paths:
+  # List all libraries
+  /libraries:
+    get:
+      summary: List all libraries
+      operationId: listLibraries
+      security: []
+      tags:
+        - libraries
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+
+      responses:
+        '200':
+          description: List of libraries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Library'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+              example:
+                data:
+                  - id: 1
+                    name: "Центральная городская библиотека"
+                    address: "Новосибирск, Красный проспект, 26"
+                    phone: "+7 913 000-00-01"
+                    workingHours: "09:00-20:00"
+                  - id: 2
+                    name: "Библиотека им. Гоголя"
+                    address: "Новосибирск, ул. Кирова, 15"
+                    phone: "+7 913 000-00-02"
+                    workingHours: "10:00-19:00"
+                total: 24
+                limit: 20
+                offset: 0
+
+
+  #Get book by ID
+  /books/{bookId}:
+    get:
+      summary: Get book by ID
+      operationId: getBook
+      security: []
+      tags:
+        - Books
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+              example:
+                id: 42
+                title: "Мастер и Маргарита"
+                author: "Михаил Булгаков"
+                isbn: "978-5-699-12014-7"
+                genre: [ Drama, Fantasy ]
+                publisher: "Эксмо"
+                year: 1967
+                language: "ru"
+                rating: 4.8
+                keywords: [ мистика, сатира ]
+                annotation: "Роман о визите дьявола в Москву 1930-х."
+                coverUrl: "https://cdn.booknet.io/book/42.jpg"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  #Search books
+  /books/search:
+    post:
+      summary: Search books
+      operationId: searchBooks
+      security: []
+      tags:
+        - Books
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookSearchRequest'
+            example:
+              author: "Булгаков"
+              genre: [Drama, Fantasy]
+              yearFrom: 1900
+              yearTo: 2020
+              language: "ru"
+              availableOnly: true
+
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Book'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+              example:
+                data:
+                  - id: 42
+                    title: "Мастер и Маргарита"
+                    author: "Михаил Булгаков"
+                    isbn: "978-5-699-12014-7"
+                    genre: [Drama, Fantasy]
+                    publisher: "Эксмо"
+                    year: 1967
+                    language: "ru"
+                    rating: 4.8
+                    keywords: [мистика, сатира]
+                    annotation: "Роман о визите дьявола в Москву 1930-х."
+                    coverUrl: "https://cdn.booknet.io/book/42.jpg"
+                total: 1
+                limit: 20
+                offset: 0
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  #List copies of a book
+  /books/{bookId}/copies:
+    get:
+      summary: List copies of a book
+      operationId: listBookCopies
+      security: []
+      tags:
+        - Books
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: integer
+
+      responses:
+        '200':
+          description: List of book copies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookCopy'
+              example:
+                - id: 101
+                  bookId: 42
+                  libraryId: 5
+                  status: AVAILABLE
+                  inventoryNumber: "A-100"
+                - id: 102
+                  bookId: 42
+                  libraryId: 5
+                  status: BORROWED
+                  inventoryNumber: "A-101"
+                - id: 103
+                  bookId: 42
+                  libraryId: 8
+                  status: AVAILABLE
+                  inventoryNumber: "B-050"
+
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  #Creat reservations
+  /reservations:
+    post:
+      summary: Create a reservation
+      operationId: createReservation
+      tags:
+        - Reservations
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: "Уникальный ключ (UUID) для защиты от дублей при повторной отправке"
+          schema:
+            type: string
+          example: "a1b2c3d4-5678-90ab-cdef-1234567890ab"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReservationCreate'
+            example:
+              copyId: 101
+      responses:
+        '201':
+          description: Reservation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+              example:
+                id: 555
+                userId: 777
+                copyId: 101
+                bookId: 42
+                libraryId: 5
+                status: RESERVED
+                reservedAt: "2026-07-01T10:00:00Z"
+                expiresAt: "2026-07-04T10:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: All copies are busy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: ALL_COPIES_BUSY
+                  message: "Все экземпляры заняты. Ближайшая дата освобождения: 15.07.2026"
+                  details:
+                    nearestAvailableDate: "2026-07-15"
+                    totalCopies: 3
+                    availableCopies: 0
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+    get:
+      summary: List current user's reservations
+      operationId: listReservations
+      tags:
+        - Reservations
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of user's reservations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Reservation'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+              example:
+                data:
+                  - id: 555
+                    userId: 777
+                    copyId: 101
+                    bookId: 42
+                    libraryId: 5
+                    status: RESERVED
+                    reservedAt: "2026-07-01T10:00:00Z"
+                    expiresAt: "2026-07-04T10:00:00Z"
+                total: 1
+                limit: 20
+                offset: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /reservations/{reservationId}:
+    delete:
+      summary: Cancel of reservation
+      operationId: cancelReservation
+      tags:
+        - Reservation
+      parameters:
+        - name: reservationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Reservation cancelled
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Reservation expired and cannot be cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: RESERVATION_EXPIRED
+                  message: "Бронь просрочена и не может быть отменена"
+                  details:
+                    expiredAt: "2026-06-25T10:00:00Z"
+                    daysOverdue: 6
+
+
+  /books:
+    post:
+      summary: create a book
+      operationId: createBook
+      tags:
+        - Books
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookCreate'
+            example:
+              title: "Мастер и Маргарита"
+              author: "Михаил Булгаков"
+              isbn: "978-5-699-12014-7"
+              genre: [Drama, Fantasy]
+              publisher: "Эксмо"
+              year: 1967
+              language: "ru"
+              keywords: [мистика, сатира]
+              annotation: "Роман о визите дьявола в Москву 1930-х."
+              coverUrl: "https://cdn.booknet.io/book/42.jpg"
+      responses:
+        '201':
+          $ref: '#/components/schemas/BookCreate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+
+
+components:
+  schemas:
+    Library:
+      type: object
+      required:
+        - id
+        - name
+        - address
+        - phone
+        - workingHours
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+          example: '+7 913 000-00-00'
+        workingHours:
+          type: string
+          example: '10:00-20:00'
+
+    Book:
+      type: object
+      required:
+        - id
+        - title
+        - author
+        - isbn
+        - genre
+        - publisher
+        - year
+        - language
+        - rating
+        - keywords
+        - annotation
+        - coverUrl
+      properties:
+        id:
+          type: integer
+          example: 42
+        title:
+          type: string
+          example: Harry Potter and secret room
+        author:
+          type: string
+          example: Лев Толстой
+        isbn:
+          type: string
+          example: 978-5-699-12014-7
+        genre:
+          type: array
+          items:
+            type: string
+            enum: [Drama, Horror, Fantasy, Romance, Thriller, Documentary]
+          example: [Drama, Horror]
+        publisher:
+          type: string
+          example: Ubisoft
+        year:
+          type: integer
+          example: 1984
+        language:
+          type: string
+          example: English
+        rating:
+          type: number
+          example: 4.1
+        keywords:
+          type: array
+          items:
+            type: string
+          example: [Magic, Train]
+        annotation:
+          type: string
+          example:  Космический корабль «Заря» отправляется к границам изученной Вселенной, но внезапный сбой системы пробуждает экипаж от анабиоза на сто лет раньше срока. Команде предстоит выжить на борту разрушающегося судна и разгадать тайну исчезновения Земли.
+        coverUrl:
+          type: string
+          format: uri
+          example: "https://cdn.booknet.io/book/42.jpg"
+
+    BookSearchRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "Мастер и Маргарита"
+        author:
+          type: string
+          example: "Булгаков"
+        isbn:
+          type: string
+          example: "978-5-699-12014-7"
+        genre:
+          type: array
+          items:
+            type: string
+            enum: [Drama, Horror, Fantasy, Romance, Thriller, Documentary]
+          example: [Drama, Fantasy]
+        publisher:
+          type: string
+          example: "Эксмо"
+        yearFrom:
+          type: integer
+          example: 1900
+        yearTo:
+          type: integer
+          example: 2020
+        language:
+          type: string
+          example: "ru"
+        ratingFrom:
+          type: number
+          example: 4.0
+        keywords:
+          type: array
+          items:
+            type: string
+          example: [магия, приключения]
+        availableOnly:
+          type: boolean
+          example: true
+
+    BookCopy:
+      type: object
+      required:
+        - id
+        - bookId
+        - libraryId
+        - status
+        - inventoryNumber
+      properties:
+        id:
+          type: integer
+          example: 101
+        bookId:
+          type: integer
+          example: 42
+        libraryId:
+          type: integer
+          example: 5
+        status:
+          type: string
+          enum: [AVAILABLE, BORROWED, RESERVED]
+          example: AVAILABLE
+        inventoryNumber:
+          type: string
+          example: "A-100"
+
+    Reservation:
+      type: object
+      required:
+        - id
+        - userId
+        - copyId
+        - bookId
+        - libraryId
+        - status
+        - reservedAt
+        - expiresAt
+      properties:
+        id:
+          type: integer
+          example: 555
+        userId:
+          type: integer
+          example: 777
+        copyId:
+          type: integer
+          example: 101
+        bookId:
+          type: integer
+          example: 42
+        libraryId:
+          type: integer
+          example: 5
+        status:
+          type: string
+          enum: [RESERVED, CANCELLED, COMPLETED]
+          example: RESERVED
+        reservedAt:
+          type: string
+          format: date-time
+          example: "2026-07-01T10:00:00Z"
+        expiresAt:
+          type: string
+          format: date-time
+          example: "2026-07-04T10:00:00Z"
+
+    ReservationCreate:
+      type: object
+      required:
+        - copyId
+      properties:
+        copyId:
+          type: integer
+          example: 101
+
+    LoanExtension:
+      type: object
+      required:
+        - newReturnDate
+      properties:
+        newReturnDate:
+          type: string
+          format: date
+          example: "2026-08-15"
+
+    BookCreate:
+      type: object
+      required:
+        - title
+        - author
+        - isbn
+        - genre
+        - publisher
+        - year
+        - language
+      properties:
+        title:
+          type: string
+          example: "Мастер и Маргарита"
+        author:
+          type: string
+          example: "Булгаков"
+        isbn:
+          type: string
+          example: "978-5-699-12014-7"
+        genre:
+          type: array
+          items:
+            type: string
+            enum: [Drama, Horror, Fantasy, Romance, Thriller, Documentary]
+          example: [Drama, Fantasy]
+        publisher:
+          type: string
+          example: "Эксмо"
+        year:
+          type: integer
+          example: 1967
+        language:
+          type: string
+          example: "ru"
+        keywords:
+          type: array
+          items:
+            type: string
+          example: [мистика, сатира]
+        annotation:
+          type: string
+          example: "Роман о визите дьявола в Москву 1930-х."
+        coverUrl:
+          type: string
+          format: uri
+          example: "https://cdn.booknet.io/book/42.jpg"
+
+    BookUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "Мастер и Маргарита (переиздание)"
+        author:
+          type: string
+        genre:
+          type: array
+          items:
+            type: string
+            enum: [Drama, Horror, Fantasy, Romance, Thriller, Documentary]
+        publisher:
+          type: string
+        year:
+          type: integer
+        language:
+          type: string
+        rating:
+          type: number
+        keywords:
+          type: array
+          items:
+            type: string
+        annotation:
+          type: string
+        coverUrl:
+          type: string
+          format: uri
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: ALL_COPIES_BUSY
+            message:
+              type: string
+              example: "Все экземпляры заняты. Ближайшая дата освобождения: 15.07.2026"
+            details:
+              type: object
+              nullable: true
+              example:
+                nearestAvailableDate: "2026-07-15"
+                queueSize: 3
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflict:
+      description: Conflict (duplicate, etc.)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    Unprocessable:
+      description: Request is valid but violates a business rule
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Authentication token is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Forbidden:
+      description: Insufficient permissions for this operation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
