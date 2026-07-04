@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Twenty CRM — People REST API (реконструкция)
+  title: Twenty CRM — People REST API
   description: Twenty генерирует OpenAPI динамически под
     схему воркспейса — статичного файла в репозитории нет.
   version: 1.0.0
