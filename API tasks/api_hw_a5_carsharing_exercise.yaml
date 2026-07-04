@@ -1,0 +1,1002 @@
+openapi: 3.0.3
+info:
+  title: Carsharing Service API
+  description: REST API for BookNet
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: api@example.com
+
+servers:
+  - url: https://api.example.com/v1
+    description: Production
+  - url: https://staging.api.example.com/v1
+    description: Staging
+
+paths:
+  # Find cars nearby
+  /cars/nearby:
+    post:
+      summary: Find cars nearby
+      operationId: findCarsNearby
+      tags:
+        - Cars
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CarSearchParams'
+            example:
+              location:
+                lat: 55.030
+                lng: 82.920
+              radius: 1000
+              carClass: comfort
+              maxPrice: 25
+              minFuelLevel: 30
+      responses:
+        '200':
+          description: Nearby cars
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CarNearby'
+              example:
+                - id: 101
+                  make: 'Toyota'
+                  model: 'Corolla'
+                  year: 2018
+                  class: comfort
+                  licensePlate: 'А123ВС154'
+                  fuelLevel: 75
+                  mileage: 77000
+                  location:
+                    lat: 55.031
+                    lng: 82.918
+                  status: AVAILABLE
+                  pricePerMinute: 30
+                  imageUrls:
+                    - 'https://cdn.drivego.io/cars/101_1.jpg'
+                    - 'https://cdn.drivego.io/cars/101_2.jpg'
+                  distance: 350
+                - id: 102
+                  make: 'Kia'
+                  model: 'Rio'
+                  year: 2020
+                  class: economy
+                  licensePlate: 'В456ОР154'
+                  fuelLevel: 60
+                  mileage: 42000
+                  location:
+                    lat: 55.028
+                    lng: 82.925
+                  status: AVAILABLE
+                  pricePerMinute: 22
+                  imageUrls:
+                    - 'https://cdn.drivego.io/cars/102_1.jpg'
+                    - 'https://cdn.drivego.io/cars/102_2.jpg'
+                  distance: 620
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+
+
+
+  #Get car by ID
+  /cars/{carId}:
+    get:
+      summary: Get car by ID
+      operationId: getCar
+      tags:
+        - Cars
+      parameters:
+        - name: carId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Car'
+              example:
+                id: 101
+                make: 'Toyota'
+                model: 'Corolla'
+                year: 2018
+                class: comfort
+                licensePlate: 'А123ВС154'
+                fuelLevel: 75
+                mileage: 77000
+                location:
+                  lat: 55.030
+                  lng: 82.485
+                status: AVAILABLE
+                pricePerMinute: 30
+                imageUrls:
+                  - 'https://cdn.drivego.io/cars/101_1.jpg'
+                  - 'https://cdn.drivego.io/cars/101_2.jpg'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  #Create Rentals
+  /rentals:
+    post:
+      summary: Create rental
+      operationId: createRental
+      tags:
+        - Rentals
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          description: 'Уникальный ключ (UUID) для защиты от дублей при повторной отправке'
+          schema:
+            type: string
+          example: 'a1b2c3d4-5678-90ab-cdef-1234567890ab'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RentalCreate'
+            example:
+              carId: 42
+      responses:
+        '201':
+          description: Rental created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rental'
+              example:
+                id: 42
+                userId: 4224
+                carId: 42
+                status: RESERVED
+                reservedAt: '2026-07-03T14:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Profile not verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: PROFILE_NOT_VERIFIED
+                  message: 'Профиль не верифицирован. Пройдите верификацию документов.'
+                  details: null
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Сar reserved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: CAR_ALREADY_RESERVED
+                  message: 'Машина уже занята, забронируйте другую'
+                  details:
+                    carId: 42
+                    availableAt: '2026-07-03T15:00:00Z'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+    # List user's rentals
+    get:
+      summary: List current user's rentals
+      operationId: listRentals
+      tags:
+        - Rentals
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: 'Фильтр по статусу аренды. Без него — вся история.'
+          schema:
+            type: string
+            enum: [RESERVED, ACTIVE, COMPLETED, CANCELLED]
+          example: ACTIVE
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of user's rentals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Rental'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+              example:
+                data:
+                  - id: 555
+                    userId: 777
+                    carId: 101
+                    status: ACTIVE
+                    reservedAt: '2026-07-03T14:00:00Z'
+                    startedAt: '2026-07-03T14:05:00Z'
+                    completedAt: null
+                    totalCost: null
+                    startPhotoUrl: 'https://cdn.drivego.io/rentals/555_start.jpg'
+                    endPhotoUrl: null
+                    route:
+                      - lat: 55.030
+                        lng: 82.920
+                        timestamp: '2026-07-03T14:06:00Z'
+                      - lat: 55.031
+                        lng: 82.925
+                        timestamp: '2026-07-03T14:10:00Z'
+                total: 1
+                limit: 20
+                offset: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # Get rental by ID
+  /rentals/{rentalId}:
+    get:
+      summary: Get rental by ID
+      operationId: getRental
+      tags:
+        - Rentals
+      parameters:
+        - name: rentalId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rental'
+              example:
+                id: 555
+                userId: 777
+                carId: 101
+                status: COMPLETED
+                reservedAt: '2026-07-03T14:00:00Z'
+                startedAt: '2026-07-03T14:05:00Z'
+                completedAt: '2026-07-03T14:45:00Z'
+                totalCost: 480
+                startPhotoUrl: 'https://cdn.drivego.io/rentals/555_start.jpg'
+                endPhotoUrl: 'https://cdn.drivego.io/rentals/555_end.jpg'
+                route:
+                  - lat: 55.030
+                    lng: 82.920
+                    timestamp: '2026-07-03T14:06:00Z'
+                  - lat: 55.031
+                    lng: 82.925
+                    timestamp: '2026-07-03T14:10:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /rentals/{rentalId}/open:
+    post:
+      summary: Open car
+      operationId: openCar
+      tags:
+        - Rentals
+      parameters:
+        - name: rentalId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          description: 'Уникальный ключ (UUID) для защиты от дублей при повторной отправке'
+          schema:
+            type: string
+          example: 'a1b2c3d4-5678-90ab-cdef-1234567890ab'
+      responses:
+        '200':
+          description: Car opened, rental is now ACTIVE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rental'
+              example:
+                id: 555
+                userId: 777
+                carId: 101
+                status: ACTIVE
+                reservedAt: '2026-07-03T14:00:00Z'
+                startedAt: '2026-07-03T14:05:00Z'
+                completedAt: null
+                totalCost: null
+                startPhotoUrl: 'https://cdn.drivego.io/rentals/555_start.jpg'
+                endPhotoUrl: null
+                route: []
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: INVALID_STATE_TRANSITION
+                  message: 'Нельзя открыть аренду: она не в статусе RESERVED'
+                  details:
+                    currentStatus: COMPLETED
+
+  # Complete rental
+  /rentals/{rentalId}/complete:
+    post:
+      summary: Complete rental
+      operationId: completeRental
+      tags:
+        - Rentals
+      parameters:
+        - name: rentalId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          description: 'Уникальный ключ (UUID) для защиты от дублей при повторной отправке'
+          schema:
+            type: string
+          example: 'a1b2c3d4-5678-90ab-cdef-1234567890ab'
+      responses:
+        '200':
+          description: Rental completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rental'
+              example:
+                id: 555
+                userId: 777
+                carId: 101
+                status: COMPLETED
+                reservedAt: '2026-07-03T14:00:00Z'
+                startedAt: '2026-07-03T14:05:00Z'
+                completedAt: '2026-07-03T14:45:00Z'
+                totalCost: 480
+                startPhotoUrl: 'https://cdn.drivego.io/rentals/555_start.jpg'
+                endPhotoUrl: 'https://cdn.drivego.io/rentals/555_end.jpg'
+                route:
+                  - lat: 55.030
+                    lng: 82.920
+                    timestamp: '2026-07-03T14:06:00Z'
+                  - lat: 55.031
+                    lng: 82.925
+                    timestamp: '2026-07-03T14:10:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: INVALID_STATE_TRANSITION
+                  message: 'Нельзя завершить аренду: она не в статусе ACTIVE'
+                  details:
+                    currentStatus: RESERVED
+        '422':
+          description: Car parked outside allowed zone
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: OUT_OF_PARKING_ZONE
+                  message: 'Завершение недоступно: вы вне разрешённой зоны парковки'
+                  details:
+                    nearestZone:
+                      lat: 55.035
+                      lng: 82.930
+                    distanceToZone: 420
+
+  # Cancel rental
+  /rentals/{rentalId}/cancel:
+    post:
+      summary: Cancel rental
+      operationId: cancelRental
+      tags:
+        - Rentals
+      parameters:
+        - name: rentalId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: X-Idempotency-Key
+          in: header
+          required: true
+          description: 'Уникальный ключ (UUID) для защиты от дублей при повторной отправке'
+          schema:
+            type: string
+          example: 'a1b2c3d4-5678-90ab-cdef-1234567890ab'
+      responses:
+        '200':
+          description: Rental cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rental'
+              example:
+                id: 555
+                userId: 777
+                carId: 101
+                status: CANCELLED
+                reservedAt: '2026-07-03T14:00:00Z'
+                startedAt: null
+                completedAt: null
+                totalCost: null
+                startPhotoUrl: null
+                endPhotoUrl: null
+                route: []
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: INVALID_STATE_TRANSITION
+                  message: 'Нельзя отменить аренду: отмена доступна только до открытия авто'
+
+
+  # Report a rental issue
+  /rentals/{rentalId}/issues:
+    post:
+      summary: Report a rental issue
+      operationId: reportRentalIssue
+      tags:
+        - Rentals
+      parameters:
+        - name: rentalId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RentalIssueCreate'
+            example:
+              issueType: DAMAGE
+              description: 'Царапина на переднем бампере'
+              photoUrls:
+                - 'https://cdn.drivego.io/issues/555_1.jpg'
+      responses:
+        '201':
+          description: Issue reported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RentalIssue'
+              example:
+                rentalId: 555
+                issueType: DAMAGE
+                description: 'Царапина на переднем бампере'
+                photoUrls:
+                  - 'https://cdn.drivego.io/issues/555_1.jpg'
+                reportedAt: '2026-07-03T15:20:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Photo is required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error:
+                  code: PHOTO_REQUIRED
+                  message: 'Для сообщения о проблеме необходимо приложить хотя бы одно фото'
+                  details: null
+
+  # Submit verification
+  /profile/verification:
+    post:
+      summary: Submit documents for verification
+      operationId: submitVerification
+      tags:
+        - Profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileVerification'
+            example:
+              userId: 777
+              documentType: driver_license
+              documentNumber: '54 АА 123456'
+              status: PENDING
+      responses:
+        '201':
+          description: Verification submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileVerification'
+              example:
+                userId: 777
+                documentType: driver_license
+                documentNumber: '54 АА 123456'
+                status: PENDING
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    get:
+      summary: Get verification status
+      operationId: getVerification
+      tags:
+        - Profile
+      responses:
+        '200':
+          description: Verification status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileVerification'
+              example:
+                userId: 777
+                documentType: driver_license
+                documentNumber: '54 АА 123456'
+                status: VERIFIED
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  schemas:
+    GeoPoint:
+      type: object
+      description: 'Географическая точка (широта и долгота)'
+      required:
+        - lat
+        - lng
+      properties:
+        lat:
+          type: number
+          example: 55.030
+        lng:
+          type: number
+          example: 82.485
+
+    RoutePoint:
+      type: object
+      required:
+        - lat
+        - lng
+        - timestamp
+      properties:
+        lat:
+          type: number
+          example: 55.030
+        lng:
+          type: number
+          example: 82.485
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-07-03T14:30:00Z'
+
+    Car:
+      type: object
+      required:
+        - id
+        - make
+        - model
+        - year
+        - class
+        - licensePlate
+        - fuelLevel
+        - mileage
+        - location
+        - status
+        - pricePerMinute
+        - imageUrls
+      properties:
+        id:
+          type: integer
+          example: 101
+        make:
+          type: string
+          example: 'Toyota'
+        model:
+          type: string
+          example: 'Corolla'
+        year:
+          type: integer
+          example: 2018
+        class:
+          type: string
+          enum: [economy, comfort, business, cargo]
+          example: comfort
+        licensePlate:
+          type: string
+          example: 'А123ВС154'
+        fuelLevel:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: 'Уровень топлива в процентах'
+          example: 75
+        mileage:
+          type: integer
+          minimum: 0
+          description: 'Пробег автомобиля в км'
+          example: 77000
+        location:
+          $ref: '#/components/schemas/GeoPoint'
+        status:
+          type: string
+          enum: [AVAILABLE, RESERVED, IN_USE, MAINTENANCE]
+          example: AVAILABLE
+        pricePerMinute:
+          type: number
+          description: 'стоимость минуты в рублях'
+          example: 30
+        imageUrls:
+          type: array
+          items:
+            type: string
+            format: uri
+          example:
+            - 'https://cdn.drivego.io/cars/101_1.jpg'
+            - 'https://cdn.drivego.io/cars/101_2.jpg'
+
+    CarSearchParams:
+      type: object
+      required:
+        - location
+        - radius
+      properties:
+        location:
+          $ref: '#/components/schemas/GeoPoint'
+        radius:
+          type: integer
+          minimum: 1
+          description: 'Радиус поиска в метрах'
+          example: 1000
+        carClass:
+          type: string
+          enum: [economy, comfort, business, cargo]
+          example: comfort
+        maxPrice:
+          type: number
+          description: 'Максимальная цена за минуту, руб'
+          example: 25
+        minFuelLevel:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: 'Минимальный уровень топлива, %'
+          example: 30
+
+    CarNearby:
+      type: object
+      description: 'Автомобиль в результатах поиска с расстоянием до него'
+      allOf:
+        - $ref: '#/components/schemas/Car'
+        - type: object
+          required:
+            - distance
+          properties:
+            distance:
+              type: integer
+              minimum: 0
+              description: 'Расстояние до автомобиля в метрах'
+              example: 350
+
+    Rental:
+      type: object
+      required:
+        - id
+        - userId
+        - carId
+        - status
+        - reservedAt
+      properties:
+        id:
+          type: integer
+          example: 555
+        userId:
+          type: integer
+          example: 777
+        carId:
+          type: integer
+          example: 101
+        status:
+          type: string
+          enum: [RESERVED, ACTIVE, COMPLETED, CANCELLED]
+          example: ACTIVE
+        reservedAt:
+          type: string
+          format: date-time
+          description: 'Время бронирования'
+          example: '2026-07-03T14:00:00Z'
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Время открытия авто (переход в ACTIVE)'
+          example: '2026-07-03T14:05:00Z'
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Время завершения аренды'
+          example: null
+        totalCost:
+          type: number
+          nullable: true
+          description: 'Итоговая стоимость, руб (появляется при завершении)'
+          example: null
+        startPhotoUrl:
+          type: string
+          format: uri
+          nullable: true
+          example: 'https://cdn.drivego.io/rentals/555_start.jpg'
+        endPhotoUrl:
+          type: string
+          format: uri
+          nullable: true
+          example: null
+        route:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoutePoint'
+          example:
+            - lat: 55.030
+              lng: 82.920
+              timestamp: '2026-07-03T14:06:00Z'
+            - lat: 55.031
+              lng: 82.925
+              timestamp: '2026-07-03T14:10:00Z'
+
+    RentalCreate:
+      type: object
+      required:
+        - carId
+      properties:
+        carId:
+          type: integer
+          example: 13
+
+    RentalIssue:
+      type: object
+      required:
+        - rentalId
+        - issueType
+        - description
+        - photoUrls
+        - reportedAt
+      properties:
+        rentalId:
+          type: integer
+          example: 33
+        issueType:
+          type: string
+          enum: [ DAMAGE, DIRTY, MALFUNCTION, OTHER]
+          example: DIRTY
+        description:
+          type: string
+          description: 'Описание проблемы'
+          example: 'Салон автомобиля грязный'
+        photoUrls:
+          type: array
+          items:
+            type: string
+            format: uri
+          example:
+            - 'https://cdn.drivego.io/cars/33_1.jpg'
+            - 'https://cdn.drivego.io/cars/33_2.jpg'
+        reportedAt:
+          type: string
+          format: date-time
+          description: 'Время создания жалобы'
+          example: '2026-07-03T15:20:00Z'
+
+    RentalIssueCreate:
+      type: object
+      required:
+        - issueType
+        - description
+        - photoUrls
+      properties:
+        issueType:
+          type: string
+          enum: [DAMAGE, DIRTY, MALFUNCTION, OTHER]
+          example: DAMAGE
+        description:
+          type: string
+          example: 'Царапина на переднем бампере'
+        photoUrls:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uri
+          example:
+            - 'https://cdn.drivego.io/issues/555_1.jpg'
+
+    ProfileVerification:
+      type: object
+      required:
+        - userId
+        - documentType
+        - documentNumber
+        - status
+      properties:
+        userId:
+          type: integer
+          example: 777
+        documentType:
+          type: string
+          enum: [passport, driver_license]
+          description: 'Тип документа'
+          example: driver_license
+        documentNumber:
+          type: string
+          description: 'Номер документа'
+          example: '54 АА 123456'
+        status:
+          type: string
+          enum: [PENDING, VERIFIED, REJECTED]
+          description: 'Статус проверки документа'
+          example: VERIFIED
+
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: CAR_ALREADY_RESERVED
+            message:
+              type: string
+              example: 'Автомобиль уже забронирован другим пользователем'
+            details:
+              type: object
+              nullable: true
+              example:
+                carId: 101
+                availableAt: '2026-07-03T15:00:00Z'
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflict:
+      description: Conflict (duplicate, etc.)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    Unprocessable:
+      description: Request is valid but violates a business rule
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Authentication token is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Forbidden:
+      description: Insufficient permissions for this operation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
