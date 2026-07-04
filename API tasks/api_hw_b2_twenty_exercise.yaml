@@ -1,0 +1,592 @@
+openapi: 3.0.3
+info:
+  title: Twenty CRM — People REST API (реконструкция)
+  description: Twenty генерирует OpenAPI динамически под
+    схему воркспейса — статичного файла в репозитории нет.
+  version: 1.0.0
+  contact:
+    name: Twenty API
+    url: https://docs.twenty.com/developers/extend/api
+
+servers:
+  - url: https://api.twenty.com/rest
+    description: Twenty Cloud
+  - url: https://{domain}/rest
+    description: Self-hosted
+    variables:
+      domain:
+        default: localhost:3000
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: People
+    description: Управление людьми (контактами) в CRM
+
+paths:
+  /people:
+    get:
+      summary: List people
+      operationId: listPeople
+      tags:
+        - People
+      parameters:
+        - name: order_by
+          in: query
+          required: false
+          description: 'Сортировка. Формат: field[AscNullsFirst|DescNullsLast].'
+          schema:
+            type: string
+          example: 'createdAt[DescNullsLast]'
+        - name: filter
+          in: query
+          required: false
+          description: >
+            Фильтр. Формат: field[operator]:value.
+            Операторы: eq, neq, gt, gte, lt, lte, in, is, startsWith, like, ilike.
+          schema:
+            type: string
+          example: 'name.firstName[ilike]:%иван%'
+        - name: limit
+          in: query
+          required: false
+          description: 'Число записей на страницу (макс. 60).'
+          schema:
+            type: integer
+            default: 60
+            maximum: 60
+        - name: depth
+          in: query
+          required: false
+          description: 'Глубина раскрытия связей: 0, 1 или 2.'
+          schema:
+            type: integer
+            enum: [0, 1, 2]
+            default: 1
+        - name: starting_after
+          in: query
+          required: false
+          description: 'Курсор: записи ПОСЛЕ указанного (следующая страница).'
+          schema:
+            type: string
+        - name: ending_before
+          in: query
+          required: false
+          description: 'Курсор: записи ДО указанного (предыдущая страница).'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Список людей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonListResponse'
+              example:
+                data:
+                  people:
+                    - id: '550e8400-e29b-41d4-a716-446655440000'
+                      name:
+                        firstName: 'Иван'
+                        lastName: 'Петров'
+                      emails:
+                        primaryEmail: 'ivan@example.com'
+                        additionalEmails: []
+                      phones:
+                        primaryPhoneNumber: '9991234567'
+                        primaryPhoneCountryCode: 'RU'
+                        primaryPhoneCallingCode: '+7'
+                        additionalPhones: []
+                      jobTitle: 'CEO'
+                      companyId: '660e8400-e29b-41d4-a716-446655440001'
+                      position: 1
+                      createdAt: '2026-07-01T10:00:00.000Z'
+                      updatedAt: '2026-07-01T10:00:00.000Z'
+                pageInfo:
+                  hasNextPage: false
+                  startCursor: 'eyJpZCI6IjU1MGU4NDAwIn0='
+                  endCursor: 'eyJpZCI6IjU1MGU4NDAwIn0='
+                totalCount: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Create a person
+      operationId: createPerson
+      tags:
+        - People
+      parameters:
+        - name: depth
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1, 2]
+            default: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonCreate'
+            example:
+              name:
+                firstName: 'Иван'
+                lastName: 'Петров'
+              emails:
+                primaryEmail: 'ivan@example.com'
+              phones:
+                primaryPhoneNumber: '9991234567'
+                primaryPhoneCountryCode: 'RU'
+                primaryPhoneCallingCode: '+7'
+              jobTitle: 'CEO'
+              companyId: '660e8400-e29b-41d4-a716-446655440001'
+      responses:
+        '201':
+          description: Человек создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      createPerson:
+                        $ref: '#/components/schemas/Person'
+              example:
+                data:
+                  createPerson:
+                    id: '550e8400-e29b-41d4-a716-446655440000'
+                    name:
+                      firstName: 'Иван'
+                      lastName: 'Петров'
+                    emails:
+                      primaryEmail: 'ivan@example.com'
+                      additionalEmails: []
+                    jobTitle: 'CEO'
+                    companyId: '660e8400-e29b-41d4-a716-446655440001'
+                    position: 1
+                    createdAt: '2026-07-01T10:00:00.000Z'
+                    updatedAt: '2026-07-01T10:00:00.000Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /people/{id}:
+    get:
+      summary: Get a person by ID
+      operationId: getPerson
+      tags:
+        - People
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: '550e8400-e29b-41d4-a716-446655440000'
+        - name: depth
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1, 2]
+            default: 1
+      responses:
+        '200':
+          description: Данные человека
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      person:
+                        $ref: '#/components/schemas/Person'
+              example:
+                data:
+                  person:
+                    id: '550e8400-e29b-41d4-a716-446655440000'
+                    name:
+                      firstName: 'Иван'
+                      lastName: 'Петров'
+                    emails:
+                      primaryEmail: 'ivan@example.com'
+                      additionalEmails: []
+                    phones:
+                      primaryPhoneNumber: '9991234567'
+                      primaryPhoneCountryCode: 'RU'
+                      primaryPhoneCallingCode: '+7'
+                      additionalPhones: []
+                    jobTitle: 'CEO'
+                    companyId: '660e8400-e29b-41d4-a716-446655440001'
+                    position: 1
+                    createdAt: '2026-07-01T10:00:00.000Z'
+                    updatedAt: '2026-07-01T10:00:00.000Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Update a person
+      operationId: updatePerson
+      tags:
+        - People
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: depth
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [0, 1, 2]
+            default: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonUpdate'
+            example:
+              jobTitle: 'CTO'
+      responses:
+        '200':
+          description: Человек обновлён
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      updatePerson:
+                        $ref: '#/components/schemas/Person'
+              example:
+                data:
+                  updatePerson:
+                    id: '550e8400-e29b-41d4-a716-446655440000'
+                    jobTitle: 'CTO'
+                    updatedAt: '2026-07-02T12:00:00.000Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete a person
+      operationId: deletePerson
+      tags:
+        - People
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: >
+            Человек удалён. Внимание: Twenty возвращает 200 с телом
+            { data: { deletePerson: { id } } }, а НЕ 204 No Content.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      deletePerson:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+              example:
+                data:
+                  deletePerson:
+                    id: '550e8400-e29b-41d4-a716-446655440000'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  schemas:
+    FullName:
+      type: object
+      description: 'Композитное поле имени (FULL_NAME)'
+      properties:
+        firstName:
+          type: string
+          example: 'Иван'
+        lastName:
+          type: string
+          example: 'Петров'
+
+    Emails:
+      type: object
+      description: 'Композитное поле email (EMAILS)'
+      properties:
+        primaryEmail:
+          type: string
+          format: email
+          example: 'ivan@example.com'
+        additionalEmails:
+          type: array
+          items:
+            type: string
+            format: email
+          example: []
+
+    Phones:
+      type: object
+      description: 'Композитное поле телефонов (PHONES)'
+      properties:
+        primaryPhoneNumber:
+          type: string
+          example: '9991234567'
+        primaryPhoneCountryCode:
+          type: string
+          description: 'ISO-код страны'
+          example: 'RU'
+        primaryPhoneCallingCode:
+          type: string
+          description: 'Телефонный код страны'
+          example: '+7'
+        additionalPhones:
+          type: array
+          items:
+            type: string
+          example: []
+
+    Links:
+      type: object
+      description: 'Композитное поле ссылок (LINKS), напр. linkedinLink'
+      properties:
+        primaryLinkLabel:
+          type: string
+          example: 'LinkedIn'
+        primaryLinkUrl:
+          type: string
+          format: uri
+          example: 'https://linkedin.com/in/ivan'
+        secondaryLinks:
+          type: array
+          items:
+            type: object
+          example: []
+
+    Actor:
+      type: object
+      description: 'Кто создал/изменил запись (ActorMetadata)'
+      properties:
+        source:
+          type: string
+          example: 'API'
+        workspaceMemberId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+          example: 'Ivan Petrov'
+
+    Person:
+      type: object
+      description: 'Человек (контакт). Поля из person.workspace-entity.ts / open-api/core'
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: '550e8400-e29b-41d4-a716-446655440000'
+        name:
+          $ref: '#/components/schemas/FullName'
+        emails:
+          $ref: '#/components/schemas/Emails'
+        phones:
+          $ref: '#/components/schemas/Phones'
+        jobTitle:
+          type: string
+          nullable: true
+          example: 'CEO'
+        avatarUrl:
+          type: string
+          nullable: true
+          description: 'Deprecated в пользу avatarFile, но всё ещё возвращается'
+        linkedinLink:
+          $ref: '#/components/schemas/Links'
+        companyId:
+          type: string
+          format: uuid
+          nullable: true
+          description: 'Связь с компанией (внешний ключ)'
+          example: '660e8400-e29b-41d4-a716-446655440001'
+        company:
+          type: object
+          nullable: true
+          description: 'Развёрнутая связь с компанией (при depth >= 1)'
+        position:
+          type: number
+          example: 1
+        createdBy:
+          $ref: '#/components/schemas/Actor'
+        updatedBy:
+          $ref: '#/components/schemas/Actor'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Soft-delete: заполнено, если запись удалена'
+
+    PersonCreate:
+      type: object
+      description: 'Тело создания. В Twenty ни одно поле не обязательно.'
+      properties:
+        name:
+          $ref: '#/components/schemas/FullName'
+        emails:
+          $ref: '#/components/schemas/Emails'
+        phones:
+          $ref: '#/components/schemas/Phones'
+        jobTitle:
+          type: string
+        linkedinLink:
+          $ref: '#/components/schemas/Links'
+        companyId:
+          type: string
+          format: uuid
+
+    PersonUpdate:
+      type: object
+      description: 'Тело обновления (PATCH). Все поля опциональны.'
+      properties:
+        name:
+          $ref: '#/components/schemas/FullName'
+        emails:
+          $ref: '#/components/schemas/Emails'
+        phones:
+          $ref: '#/components/schemas/Phones'
+        jobTitle:
+          type: string
+        linkedinLink:
+          $ref: '#/components/schemas/Links'
+        companyId:
+          type: string
+          format: uuid
+
+    PageInfo:
+      type: object
+      description: 'Курсорная пагинация'
+      properties:
+        hasNextPage:
+          type: boolean
+          example: false
+        startCursor:
+          type: string
+          nullable: true
+        endCursor:
+          type: string
+          nullable: true
+
+    PersonListResponse:
+      type: object
+      description: 'Конверт списка: data.people + pageInfo + totalCount'
+      properties:
+        data:
+          type: object
+          properties:
+            people:
+              type: array
+              items:
+                $ref: '#/components/schemas/Person'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+        totalCount:
+          type: integer
+          example: 1
+
+    Error:
+      type: object
+      description: 'Формат ошибки Twenty (NestJS-style)'
+      properties:
+        statusCode:
+          type: integer
+          example: 400
+        error:
+          type: string
+          example: 'Bad Request'
+        messages:
+          type: array
+          items:
+            type: string
+          example:
+            - 'filter field is not valid'
+
+  responses:
+    BadRequest:
+      description: Некорректный запрос (фильтр, тело, параметры)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 400
+            error: 'Bad Request'
+            messages:
+              - 'filter field is not valid'
+
+    Unauthorized:
+      description: Отсутствует или невалиден Bearer-токен
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 401
+            error: 'Unauthorized'
+            messages:
+              - 'Missing or invalid authentication token'
+
+    NotFound:
+      description: Человек с указанным id не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 404
+            error: 'Not Found'
+            messages:
+              - 'Person not found'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'API-ключ создаётся в Twenty: Settings → API & Webhooks'
