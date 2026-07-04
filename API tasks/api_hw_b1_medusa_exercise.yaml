@@ -8,9 +8,9 @@ info:
     url: https://docs.medusajs.com/api/store
 
 servers:
-  - url: https://your-medusa-backend.com/store
+  - url: https://api.medusajs.com
     description: Production
-  - url: http://localhost:9000/store
+  - url: http://localhost:9000
     description: Local development
 
 security:
@@ -23,7 +23,7 @@ tags:
     description: Корзина покупок
 
 paths:
-  /products:
+  /store/products:
     get:
       summary: List products
       operationId: listProducts
@@ -110,7 +110,7 @@ paths:
                   - id: 'prod_01H...'
                     title: 'Medusa T-Shirt'
                     subtitle: null
-                    description: 'Хлопковая футболка'
+                    description: 'Comfortable cotton t-shirt'
                     handle: 'medusa-t-shirt'
                     is_giftcard: false
                     status: 'published'
@@ -135,7 +135,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /products/{id}:
+  /store/products/{id}:
     get:
       summary: Get a product
       operationId: getProduct
@@ -175,7 +175,7 @@ paths:
                 product:
                   id: 'prod_01H...'
                   title: 'Medusa T-Shirt'
-                  description: 'Хлопковая футболка'
+                  description: 'Comfortable cotton t-shirt'
                   handle: 'medusa-t-shirt'
                   is_giftcard: false
                   status: 'published'
@@ -194,7 +194,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /carts:
+  /store/carts:
     post:
       summary: Create a cart
       operationId: createCart
@@ -239,7 +239,7 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /carts/{id}:
+  /store/carts/{id}:
     get:
       summary: Get a cart
       operationId: getCart
@@ -283,7 +283,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /carts/{id}/line-items:
+  /store/carts/{id}/line-items:
     post:
       summary: Add a line item to cart
       operationId: addLineItem
@@ -548,6 +548,9 @@ components:
       type: object
       description: 'Формат ошибки Medusa'
       properties:
+        code:
+          type: string
+          example: 'not_found'
         type:
           type: string
           example: 'not_found'
@@ -563,6 +566,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
           example:
+            code: 'invalid_data'
             type: 'invalid_data'
             message: 'quantity must be a positive integer'
 
@@ -573,6 +577,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
           example:
+            code: 'not_found'
             type: 'not_found'
             message: 'Cart with id cart_x was not found'
 
