@@ -1,0 +1,423 @@
+openapi: 3.0.3
+info:
+  title: Medusa Store API — Returns (RMA)
+  description: Доработка Store API Medusa — добавление возвратов товаров (RMA).
+  version: 2.0.0
+  contact:
+    name: Medusa Store API
+    url: https://docs.medusajs.com/api/store
+
+servers:
+  - url: https://api.medusajs.com
+    description: Production
+  - url: http://localhost:9000
+    description: Local development
+
+security:
+  - PublishableApiKey: []
+
+tags:
+  - name: Returns
+    description: Возвраты товаров (RMA)
+
+paths:
+  /store/returns:
+    post:
+      summary: Create Return
+      operationId: createReturn
+      tags:
+        - Returns
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: "Уникальный ключ (UUID) для защиты от дублей при повторной отправке"
+          schema:
+            type: string
+          example: "a1b2c3d4-5678-90ab-cdef-1234567890ab"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReturnCreate'
+            example:
+              order_id: 'order_01H...'
+              items:
+                - line_item_id: 'li_01H...'
+                  quantity: 2
+                  reason: DEFECTIVE
+                - line_item_id: 'li_01H...'
+                  quantity: 1
+                  reason: WRONG_ITEM
+      responses:
+        '201':
+          description: Return created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Return'
+              example:
+                id: 'ret_01H8...'
+                order_id: 'order_01H8...'
+                items:
+                    - line_item_id: 'li_01H...'
+                      quantity: 2
+                      reason: DEFECTIVE
+                status: REQUESTED
+                refund_amount: null
+                shipping_label_url: null
+                requested_at: '2026-07-01T10:00:00.000Z'
+                updated_at: '2026-07-01T10:00:00.000Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Позиция уже в активном возврате (AC6)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'item_already_in_return'
+                type: 'conflict'
+                message: 'Позиция li_01H8... уже находится в активном возврате ret_01H8...'
+                details:
+                  line_item_id: 'li_01H8...'
+                  existing_return_id: 'ret_01H8...'
+        '422':
+          description: >
+            Нарушено бизнес-правило возврата: заказ не в статусе DELIVERED (правило)
+            или прошло более 30 дней с даты доставки (AC5).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'return_window_expired'
+                type: 'invalid_data'
+                message: 'Возврат недоступен: с даты доставки прошло более 30 дней'
+                details:
+                  delivered_at: '2026-05-20T10:00:00.000Z'
+                  return_window_days: 30
+                  days_since_delivery: 42
+
+    get:
+      summary: List return by User
+      operationId: listReturn
+      tags:
+        - Returns
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Return'
+              example:
+                - id: 'ret_01H8...'
+                  order_id: 'order_01H8...'
+                  items:
+                    - line_item_id: 'li_01H...'
+                      quantity: 2
+                      reason: DEFECTIVE
+                  status: REQUESTED
+                  refund_amount: null
+                  shipping_label_url: null
+                  requested_at: '2026-07-01T10:00:00.000Z'
+                  updated_at: '2026-07-01T10:00:00.000Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /store/returns/{returnId}:
+    get:
+      summary: Get return by ID
+      operationId: getReturn
+      tags:
+        - Returns
+      parameters:
+        - name: returnId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Return'
+              example:
+                id: 'ret_01H8...'
+                order_id: 'order_01H8...'
+                items:
+                  - line_item_id: 'li_01H...'
+                    quantity: 2
+                    reason: DEFECTIVE
+                status: REQUESTED
+                refund_amount: null
+                shipping_label_url: null
+                requested_at: '2026-07-01T10:00:00.000Z'
+                updated_at: '2026-07-01T10:00:00.000Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /store/returns/{returnId}/cancel:
+    post:
+      summary: Cancel return
+      operationId: cancelReturn
+      tags:
+        - Returns
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: "Уникальный ключ (UUID) для защиты от дублей при повторной отправке"
+          schema:
+            type: string
+          example: "a1b2c3d4-5678-90ab-cdef-1234567890ab"
+        - name: returnId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Return'
+              example:
+                id: 'ret_01H8...'
+                order_id: 'order_01H8...'
+                items:
+                  - line_item_id: 'li_01H...'
+                    quantity: 2
+                    reason: DEFECTIVE
+                status: CANCELLED
+                refund_amount: null
+                shipping_label_url: null
+                requested_at: '2026-07-01T10:00:00.000Z'
+                updated_at: '2026-07-01T10:00:00.000Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Возврат нельзя отменить — он уже одобрен или обработан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: 'return_not_cancellable'
+                type: 'conflict'
+                message: 'Возврат ret_01H8... нельзя отменить: текущий статус APPROVED'
+                details:
+                  return_id: 'ret_01H8...'
+                  current_status: 'APPROVED'
+
+  /store/return-reasons:
+    get:
+      summary: List return reasons
+      operationId: listReturnReasons
+      tags:
+        - Returns
+      responses:
+        '200':
+          description: Справочник причин возврата
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReturnReason'
+              example:
+                - id: 'ret_reason_01H8...'
+                  value: DEFECTIVE
+                  label: 'Товар бракованный'
+                  description: 'Товар пришёл с дефектом или не работает'
+                - id: 'ret_reason_02H8...'
+                  value: WRONG_ITEM
+                  label: 'Прислали не тот товар'
+                  description: null
+                - id: 'ret_reason_03H8...'
+                  value: NOT_AS_DESCRIBED
+                  label: 'Не соответствует описанию'
+                  description: null
+
+components:
+  schemas:
+    ReturnItem:
+      type: object
+      description: Возвращаемая позиция
+      required:
+        - reason
+        - line_item_id
+        - quantity
+      properties:
+        reason:
+          type: string
+          enum: [DEFECTIVE, WRONG_ITEM, NOT_AS_DESCRIBED, DONT_LIKE, OTHER]
+          example: DEFECTIVE
+        line_item_id:
+          type: string
+          example: 'li_01H8...'
+        quantity:
+          type: integer
+          minimum: 1
+          example: 3
+
+    ReturnCreate:
+      type: object
+      description: модель данных для создания возврата
+      required:
+        - order_id
+        - items
+      properties:
+        order_id:
+          type: string
+          example: 'order_01H...'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReturnItem'
+
+    Return:
+      type: object
+      description: модель 'Return' для возврата товара
+      required:
+        - id
+        - items
+        - order_id
+        - status
+        - requested_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          example: 'ret_01H8'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReturnItem'
+        status:
+          type: string
+          enum: [REQUESTED, APPROVED, SHIPPED_BACK, RECEIVED, REFUNDED, REJECTED, CANCELLED]
+          example: SHIPPED_BACK
+        order_id:
+          type: string
+          example: 'order_01H8...'
+        refund_amount:
+          type: number
+          nullable: true
+          description: 'Итоговая сумма к возврату. Заполняется при REFUNDED (может меняться из-за комиссий/частичного одобрения).'
+          example: 4824.32
+        shipping_label_url:
+          type: string
+          format: uri
+          nullable: true
+        requested_at:
+          type: string
+          format: date-time
+          example: '2026-07-01T10:00:00.000Z'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2026-07-01T11:00:00.000Z'
+
+    ReturnReason:
+      type: object
+      description: 'Причина возврата из справочника'
+      required:
+        - id
+        - value
+        - label
+      properties:
+        id:
+          type: string
+          example: 'ret_reason_01H8...'
+        value:
+          type: string
+          description: 'Машинный код причины (уходит в ReturnItem.reason)'
+          enum: [DEFECTIVE, WRONG_ITEM, NOT_AS_DESCRIBED, DONT_LIKE, OTHER]
+          example: DEFECTIVE
+        label:
+          type: string
+          description: 'Человекочитаемое название для UI'
+          example: 'Товар бракованный'
+        description:
+          type: string
+          nullable: true
+          description: 'Подробное пояснение причины (опционально)'
+          example: 'Товар пришёл с дефектом или не работает'
+
+
+    Error:
+      type: object
+      description: 'Формат ошибки Medusa'
+      properties:
+        code:
+          type: string
+          example: 'not_found'
+        type:
+          type: string
+          example: 'not_found'
+        message:
+          type: string
+          example: 'Return with id ret_x was not found'
+        details:
+          type: object
+          nullable: true
+          description: 'Доп. данные бизнес-ошибки (даты, id, счётчики)'
+
+  responses:
+
+    BadRequest:
+      description: Некорректный запрос
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 'invalid_data'
+            type: 'invalid_data'
+            message: 'quantity must be a positive integer'
+
+    Unauthorized:
+      description: Авторизация невалидна
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 'unauthorized'
+            type: 'unauthorized'
+            message: 'Authentication required: missing or invalid token'
+
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 'not_found'
+            type: 'not_found'
+            message: 'Return with id ret_x was not found'
+
+  securitySchemes:
+    PublishableApiKey:
+      type: apiKey
+      in: header
+      name: x-publishable-api-key
+      description: 'Публикуемый ключ канала продаж (обязателен для всех /store роутов)'
